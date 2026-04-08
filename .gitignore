@@ -1,0 +1,9 @@
+# Build
+/target
+
+# Env
+.env
+
+# Database
+readings.db
+/.sqlx
