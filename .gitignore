@@ -5,5 +5,5 @@
 .env
 
 # Database
-readings.db
+readings.db*
 /.sqlx
