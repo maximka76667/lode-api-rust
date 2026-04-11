@@ -2,6 +2,8 @@
 
 REST API for receiving and serving BME280 sensor readings (temperature, humidity, pressure). The sensor board pushes data via HTTP POST; clients fetch history or subscribe to live updates over SSE.
 
+Firmware for the sensor board: [maximka76667/lode-stm32h723](https://github.com/maximka76667/lode-stm32h723)
+
 ## Endpoints
 
 | Method | Path        | Description                                        |
