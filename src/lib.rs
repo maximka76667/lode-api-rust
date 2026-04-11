@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
 };
 use tokio::sync::broadcast;
-use tower_http::trace::TraceLayer;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 pub struct AppState {
     pub db: sqlx::SqlitePool,
@@ -21,5 +21,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/readings", get(handlers::get_readings))
         .route("/sse", get(handlers::sse_handler))
         .with_state(state)
+        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
 }
