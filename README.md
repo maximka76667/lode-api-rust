@@ -64,9 +64,12 @@ cargo test
 
 ## Deployment
 
-The app is deployed on [Koyeb](https://koyeb.com) using the included `Dockerfile`. The database is hosted on [Neon](https://neon.tech) (PostgreSQL).
+The app is deployed on [Render](https://render.com) using the included `Dockerfile`. The database is hosted on [Neon](https://neon.tech) (PostgreSQL).
 
-Set the `DATABASE_URL` environment variable in the Koyeb dashboard to the Neon production connection string.
+1. Create a new **Web Service** on Render, connect your GitHub repo
+2. Set build method to **Dockerfile**
+3. Set the port to **3111**
+4. Add environment variable `DATABASE_URL` with your Neon production connection string
 
 ## Design Decisions
 
@@ -74,7 +77,7 @@ Set the `DATABASE_URL` environment variable in the Koyeb dashboard to the Neon p
 
 **Neon for database hosting** — Free tier, no credit card required, supports PostgreSQL with TLS. Provides separate projects/databases, which allows a clean split between production and test databases without any local setup.
 
-**Koyeb for backend hosting** — Free tier, no credit card required, supports Docker deployments. The included `Dockerfile` uses a multi-stage build to keep the final image small.
+**Render for backend hosting** — Free tier, no credit card required, deploys from GitHub using the included `Dockerfile`.
 
 **Separate `TEST_DATABASE_URL`** — Tests use a dedicated Neon project instead of the production database. `#[sqlx::test]` was considered but dropped — it dynamically creates and drops databases per test, which conflicts with Neon's connection pooling (lingering connections block the DROP). Instead, tests use a single shared database with a `TRUNCATE` at the start of each test and `max_connections(1)` to stay within Neon's free tier connection limit.
 
