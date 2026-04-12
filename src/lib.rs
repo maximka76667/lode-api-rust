@@ -11,7 +11,7 @@ use tokio::sync::broadcast;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 pub struct AppState {
-    pub db: sqlx::SqlitePool,
+    pub db: sqlx::PgPool,
     pub tx: broadcast::Sender<models::SensorReading>,
 }
 

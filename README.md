@@ -14,16 +14,13 @@ Firmware for the sensor board: [maximka76667/lode-stm32h723](https://github.com/
 
 ## Setup
 
-**Requirements:** Rust, `sqlx-cli`
+**Requirements:** Rust
 
-```bash
-cargo install sqlx-cli --no-default-features --features sqlite
-```
+Create a `.env` file in the project root:
 
-Create the database and run migrations:
-
-```bash
-sqlx database create && sqlx migrate run
+```env
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+TEST_DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 ```
 
 Run the server:
@@ -59,14 +56,34 @@ curl -N http://localhost:3111/sse
 
 ## Testing
 
+Tests run against a separate database specified by `TEST_DATABASE_URL`. Each test truncates the table before running.
+
 ```bash
 cargo test
 ```
 
+## Deployment
+
+The app is deployed on [Koyeb](https://koyeb.com) using the included `Dockerfile`. The database is hosted on [Neon](https://neon.tech) (PostgreSQL).
+
+Set the `DATABASE_URL` environment variable in the Koyeb dashboard to the Neon production connection string.
+
+## Design Decisions
+
+**PostgreSQL over SQLite** — Originally used SQLite for simplicity, but switched to PostgreSQL to enable free cloud deployment. SQLite is file-based, and free hosting services either don't provide persistent storage or require a paid plan for it. PostgreSQL can be hosted separately (Neon) and connected to from any backend host.
+
+**Neon for database hosting** — Free tier, no credit card required, supports PostgreSQL with TLS. Provides separate projects/databases, which allows a clean split between production and test databases without any local setup.
+
+**Koyeb for backend hosting** — Free tier, no credit card required, supports Docker deployments. The included `Dockerfile` uses a multi-stage build to keep the final image small.
+
+**Separate `TEST_DATABASE_URL`** — Tests use a dedicated Neon project instead of the production database. `#[sqlx::test]` was considered but dropped — it dynamically creates and drops databases per test, which conflicts with Neon's connection pooling (lingering connections block the DROP). Instead, tests use a single shared database with a `TRUNCATE` at the start of each test and `max_connections(1)` to stay within Neon's free tier connection limit.
+
+**`RUST_TEST_THREADS = "1"` in `.cargo/config.toml`** — Tests share a single database, so running them in parallel causes race conditions. This enforces sequential execution without needing to pass `--test-threads=1` manually every time.
+
 ## Environment
 
-| Variable       | Description                                                   |
-| -------------- | ------------------------------------------------------------- |
-| `DATABASE_URL` | SQLite connection string (default: `sqlite:./readings.db`)    |
-| `SQLX_OFFLINE` | Use cached query metadata instead of live DB (`true`/`false`) |
-| `RUST_LOG`     | Log level (e.g. `lode_api_rust=debug`)                        |
+| Variable           | Description                                      |
+| ------------------ | ------------------------------------------------ |
+| `DATABASE_URL`     | PostgreSQL connection string (required)          |
+| `TEST_DATABASE_URL`| PostgreSQL connection string used for tests      |
+| `RUST_LOG`         | Log level (e.g. `lode_api_rust=debug`)           |

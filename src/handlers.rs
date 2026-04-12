@@ -20,17 +20,14 @@ pub async fn create_reading(
     State(state): State<Arc<AppState>>,
     Json(body): Json<NewReading>,
 ) -> StatusCode {
-    let result = sqlx::query_as!(
-        SensorReading,
-        r#"
-        INSERT INTO readings (temperature, humidity, pressure)
-        VALUES (?, ?, ?)
-        RETURNING id, temperature, humidity, pressure, recorded_at as "recorded_at: _"
-        "#,
-        body.temperature_c,
-        body.humidity_pct,
-        body.pressure_hpa,
+    let result = sqlx::query_as::<_, SensorReading>(
+        "INSERT INTO readings (temperature, humidity, pressure) \
+         VALUES ($1, $2, $3) \
+         RETURNING id, temperature, humidity, pressure, recorded_at",
     )
+    .bind(body.temperature_c)
+    .bind(body.humidity_pct)
+    .bind(body.pressure_hpa)
     .fetch_one(&state.db)
     .await;
 
@@ -49,8 +46,8 @@ pub async fn get_readings(
 ) -> Result<Json<Vec<SensorReading>>, StatusCode> {
     let limit = filters.limit.unwrap_or(100);
 
-    let mut qb = sqlx::QueryBuilder::new(
-        r#"SELECT id, temperature, humidity, pressure, recorded_at FROM readings WHERE 1=1"#,
+    let mut qb = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+        "SELECT id, temperature, humidity, pressure, recorded_at FROM readings WHERE 1=1",
     );
 
     if let Some(from) = filters.from {

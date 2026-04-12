@@ -6,12 +6,13 @@ edition = "2024"
 [dependencies]
 axum = { version = "0.8.8", features = ["macros"] }
 chrono = { version = "0.4.44", features = ["serde"] }
+dotenvy = "0.15.7"
 futures-core = "0.3.32"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sqlx = { version = "0.8.6", features = [
-    "runtime-tokio",
-    "sqlite",
+    "runtime-tokio-rustls",
+    "postgres",
     "chrono",
     "macros",
 ] }

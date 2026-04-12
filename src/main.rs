@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
 use lode_api_rust::{AppState, build_router};
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::postgres::PgPoolOptions;
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() {
+    dotenvy::dotenv().ok();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -15,8 +17,11 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let db = SqlitePoolOptions::new()
-        .connect("sqlite:./readings.db?mode=rwc")
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+
+    let db = PgPoolOptions::new()
+        .connect(&database_url)
         .await
         .expect("failed to connect to database");
 
