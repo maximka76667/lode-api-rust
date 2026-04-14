@@ -67,6 +67,20 @@ pub async fn get_readings(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
+pub async fn get_latest_reading(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<SensorReading>, StatusCode> {
+    sqlx::query_as::<_, SensorReading>(
+        "SELECT id, temperature, humidity, pressure, recorded_at \
+         FROM readings ORDER BY recorded_at DESC LIMIT 1",
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)
+    .map(Json)
+}
+
 pub async fn sse_handler(
     State(state): State<Arc<AppState>>,
 ) -> Sse<impl futures_core::Stream<Item = Result<Event, Infallible>>> {

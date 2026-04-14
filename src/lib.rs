@@ -25,6 +25,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/", get(index))
         .route("/readings", post(handlers::create_reading))
         .route("/readings", get(handlers::get_readings))
+        .route("/readings/latest", get(handlers::get_latest_reading))
         .route("/sse", get(handlers::sse_handler))
         .with_state(state)
         .layer(CorsLayer::permissive())

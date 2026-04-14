@@ -6,11 +6,12 @@ Firmware for the sensor board: [maximka76667/lode-stm32h723](https://github.com/
 
 ## Endpoints
 
-| Method | Path        | Description                                        |
-| ------ | ----------- | -------------------------------------------------- |
-| `POST` | `/readings` | Push a new reading from the board                  |
-| `GET`  | `/readings` | Fetch historical readings (supports filters)       |
-| `GET`  | `/sse`      | Live stream of new readings via Server-Sent Events |
+| Method | Path               | Description                                        |
+| ------ | ------------------ | -------------------------------------------------- |
+| `POST` | `/readings`        | Push a new reading from the board                  |
+| `GET`  | `/readings`        | Fetch historical readings (supports filters)       |
+| `GET`  | `/readings/latest` | Fetch the most recent reading                      |
+| `GET`  | `/sse`             | Live stream of new readings via Server-Sent Events |
 
 ## Setup
 
@@ -46,6 +47,12 @@ curl -X POST http://localhost:3111/readings \
 ```bash
 curl http://localhost:3111/readings
 curl "http://localhost:3111/readings?limit=10&from=2026-01-01T00:00:00Z"
+```
+
+**Get the latest reading:**
+
+```bash
+curl http://localhost:3111/readings/latest
 ```
 
 **Subscribe to live updates:**
@@ -84,8 +91,8 @@ The app is deployed on [Render](https://render.com) using the native Rust build.
 
 ## Environment
 
-| Variable           | Description                                      |
-| ------------------ | ------------------------------------------------ |
-| `DATABASE_URL`     | PostgreSQL connection string (required)          |
-| `TEST_DATABASE_URL`| PostgreSQL connection string used for tests      |
-| `RUST_LOG`         | Log level (e.g. `lode_api_rust=debug`)           |
+| Variable            | Description                                 |
+| ------------------- | ------------------------------------------- |
+| `DATABASE_URL`      | PostgreSQL connection string (required)     |
+| `TEST_DATABASE_URL` | PostgreSQL connection string used for tests |
+| `RUST_LOG`          | Log level (e.g. `lode_api_rust=debug`)      |
