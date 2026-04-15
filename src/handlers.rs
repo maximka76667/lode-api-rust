@@ -44,8 +44,6 @@ pub async fn get_readings(
     State(state): State<Arc<AppState>>,
     Query(filters): Query<ReadingFilters>,
 ) -> Result<Json<Vec<SensorReading>>, StatusCode> {
-    let limit = filters.limit.unwrap_or(100);
-
     let mut qb = sqlx::QueryBuilder::<sqlx::Postgres>::new(
         "SELECT id, temperature, humidity, pressure, recorded_at FROM readings WHERE 1=1",
     );
@@ -57,8 +55,11 @@ pub async fn get_readings(
         qb.push(" AND recorded_at <= ").push_bind(to);
     }
 
-    qb.push(" ORDER BY recorded_at DESC LIMIT ")
-        .push_bind(limit);
+    qb.push(" ORDER BY recorded_at DESC");
+
+    if let Some(limit) = filters.limit {
+        qb.push(" LIMIT ").push_bind(limit);
+    }
 
     qb.build_query_as::<SensorReading>()
         .fetch_all(&state.db)
