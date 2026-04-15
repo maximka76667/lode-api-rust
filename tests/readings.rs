@@ -120,6 +120,56 @@ async fn test_get_readings_limit() {
 }
 
 #[tokio::test]
+async fn test_get_readings_no_limit_returns_all() {
+    let state = setup().await;
+
+    for i in 0..5 {
+        let status =
+            post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
+
+    let response = build_router(Arc::clone(&state))
+        .oneshot(Request::builder().uri("/readings").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let readings: Vec<SensorReading> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(readings.len(), 5);
+}
+
+#[tokio::test]
+async fn test_get_readings_from_filter() {
+    use chrono::Utc;
+
+    let state = setup().await;
+
+    // Insert 3 readings, then record a timestamp, then insert 2 more
+    for i in 0..3 {
+        post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
+    }
+
+    let cutoff = Utc::now();
+
+    for i in 0..2 {
+        post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
+    }
+
+    let from = cutoff.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string();
+    let uri = format!("/readings?from={from}");
+
+    let response = build_router(Arc::clone(&state))
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let readings: Vec<SensorReading> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(readings.len(), 2);
+}
+
+#[tokio::test]
 async fn test_post_invalid_body_returns_422() {
     let state = setup().await;
 
