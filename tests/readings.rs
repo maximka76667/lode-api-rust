@@ -123,7 +123,8 @@ async fn test_get_readings_limit() {
 async fn test_get_readings_no_limit_returns_all() {
     let state = setup().await;
 
-    for i in 0..5 {
+    // Insert more than the old default of 100 to prove no silent cap is applied
+    for i in 0..150 {
         let status =
             post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
         assert_eq!(status, StatusCode::CREATED);
@@ -136,7 +137,7 @@ async fn test_get_readings_no_limit_returns_all() {
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let readings: Vec<SensorReading> = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(readings.len(), 5);
+    assert_eq!(readings.len(), 150);
 }
 
 #[tokio::test]
