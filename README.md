@@ -1,5 +1,8 @@
 # lode-api-rust
 
+> [!IMPORTANT]
+> Since I'm using Neon's free tier with minimal memory allocation, the monthly compute quota runs out on 31-day months. On the last day of those months the database becomes unavailable and the service stops working until the quota resets on the 1st.
+
 REST API for receiving and serving BME280 sensor readings (temperature, humidity, pressure). The sensor board pushes data via HTTP POST; clients fetch history or subscribe to live updates over SSE.
 
 Firmware for the sensor board: [maximka76667/lode-stm32h723](https://github.com/maximka76667/lode-stm32h723)
