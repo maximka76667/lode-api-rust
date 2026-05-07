@@ -21,13 +21,24 @@ pub async fn create_reading(
     Json(body): Json<NewReading>,
 ) -> StatusCode {
     let result = sqlx::query_as::<_, SensorReading>(
-        "INSERT INTO readings (temperature, humidity, pressure) \
-         VALUES ($1, $2, $3) \
-         RETURNING id, temperature, humidity, pressure, recorded_at",
+        "INSERT INTO readings \
+         (temperature, humidity, pressure, \
+          presence_status, movement_distance_cm, movement_energy, \
+          stationary_distance_cm, stationary_energy, detection_distance_cm) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) \
+         RETURNING id, temperature, humidity, pressure, recorded_at, \
+                   presence_status, movement_distance_cm, movement_energy, \
+                   stationary_distance_cm, stationary_energy, detection_distance_cm",
     )
     .bind(body.temperature_c)
     .bind(body.humidity_pct)
     .bind(body.pressure_hpa)
+    .bind(body.presence_status)
+    .bind(body.movement_distance_cm)
+    .bind(body.movement_energy)
+    .bind(body.stationary_distance_cm)
+    .bind(body.stationary_energy)
+    .bind(body.detection_distance_cm)
     .fetch_one(&state.db)
     .await;
 
@@ -45,7 +56,10 @@ pub async fn get_readings(
     Query(filters): Query<ReadingFilters>,
 ) -> Result<Json<Vec<SensorReading>>, StatusCode> {
     let mut qb = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-        "SELECT id, temperature, humidity, pressure, recorded_at FROM readings WHERE 1=1",
+        "SELECT id, temperature, humidity, pressure, recorded_at, \
+         presence_status, movement_distance_cm, movement_energy, \
+         stationary_distance_cm, stationary_energy, detection_distance_cm \
+         FROM readings WHERE 1=1",
     );
 
     if let Some(from) = filters.from {
@@ -72,7 +86,9 @@ pub async fn get_latest_reading(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<SensorReading>, StatusCode> {
     sqlx::query_as::<_, SensorReading>(
-        "SELECT id, temperature, humidity, pressure, recorded_at \
+        "SELECT id, temperature, humidity, pressure, recorded_at, \
+         presence_status, movement_distance_cm, movement_energy, \
+         stationary_distance_cm, stationary_energy, detection_distance_cm \
          FROM readings ORDER BY recorded_at DESC LIMIT 1",
     )
     .fetch_optional(&state.db)
