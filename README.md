@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > Since I'm using Neon's free tier with minimal memory allocation, the monthly compute quota runs out on 30 and 31-day months. On the last one-two days of those months the database becomes unavailable and the service stops working until the quota resets on the 1st.
 
-REST API for receiving and serving BME280 sensor readings (temperature, humidity, pressure). The sensor board pushes data via HTTP POST; clients fetch history or subscribe to live updates over SSE.
+REST API for receiving and serving sensor readings from the embedded board — temperature, humidity, pressure (BME280) and human presence data (LD2410C radar). The sensor board pushes data via HTTP POST; clients fetch history or subscribe to live updates over SSE.
 
 Firmware for the sensor board: [maximka76667/lode-stm32h723](https://github.com/maximka76667/lode-stm32h723)
 
@@ -42,8 +42,20 @@ Server listens on `http://0.0.0.0:3111`.
 ```bash
 curl -X POST http://localhost:3111/readings \
   -H "Content-Type: application/json" \
-  -d '{"temperature_c": 23.4, "humidity_pct": 58.2, "pressure_hpa": 1013.25}'
+  -d '{
+    "temperature_c": 23.4,
+    "humidity_pct": 58.2,
+    "pressure_hpa": 1013.25,
+    "presence_status": 3,
+    "movement_distance_cm": 120,
+    "movement_energy": 75,
+    "stationary_distance_cm": 200,
+    "stationary_energy": 60,
+    "detection_distance_cm": 120
+  }'
 ```
+
+Presence fields are optional — omit them or set to `null` if radar data is unavailable.
 
 **Get history:**
 
