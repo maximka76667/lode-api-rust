@@ -33,7 +33,7 @@ async fn main() {
     let state = Arc::new(AppState { db, tx });
     let app = build_router(state);
 
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3111".to_string());
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3600".to_string());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
     tracing::info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
