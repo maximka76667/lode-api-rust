@@ -151,7 +151,10 @@ async fn test_get_readings_from_filter() {
         post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
     }
 
-    let cutoff = Utc::now();
+    let cutoff: chrono::DateTime<Utc> = sqlx::query_scalar("SELECT NOW()")
+        .fetch_one(&state.db)
+        .await
+        .unwrap();
 
     for i in 0..2 {
         post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
