@@ -1,8 +1,5 @@
 # lode-api-rust
 
-> [!IMPORTANT]
-> Since I'm using Neon's free tier with minimal memory allocation, the monthly compute quota runs out on 30 and 31-day months. On the last one-two days of those months the database becomes unavailable and the service stops working until the quota resets on the 1st.
-
 REST API for receiving and serving sensor readings from the embedded board — temperature, humidity, pressure (BME280) and human presence data (LD2410C radar). The sensor board pushes data via HTTP POST; clients fetch history or subscribe to live updates over SSE.
 
 Firmware for the sensor board: [maximka76667/lode-stm32h723](https://github.com/maximka76667/lode-stm32h723)
@@ -86,21 +83,21 @@ cargo test
 
 ## Deployment
 
-The app is deployed on [Render](https://render.com) using the native Rust build. The database is hosted on [Neon](https://neon.tech) (PostgreSQL).
+The app is deployed on [Render](https://render.com) using the native Rust build. The database is hosted on [Supabase](https://supabase.com) (PostgreSQL).
 
 1. Create a new **Web Service** on Render, connect your GitHub repo
 2. Set build method to **Rust**
-3. Add environment variable `DATABASE_URL` with your Neon production connection string
+3. Add environment variable `DATABASE_URL` with your Supabase production connection string
 
 ## Design Decisions
 
-**PostgreSQL over SQLite** — Originally used SQLite for simplicity, but switched to PostgreSQL to enable free cloud deployment. SQLite is file-based, and free hosting services either don't provide persistent storage or require a paid plan for it. PostgreSQL can be hosted separately (Neon) and connected to from any backend host.
+**PostgreSQL over SQLite** — Originally used SQLite for simplicity, but switched to PostgreSQL to enable free cloud deployment. SQLite is file-based, and free hosting services either don't provide persistent storage or require a paid plan for it. PostgreSQL can be hosted separately (Supabase) and connected to from any backend host.
 
-**Neon for database hosting** — Free tier, no credit card required, supports PostgreSQL with TLS. Provides separate projects/databases, which allows a clean split between production and test databases without any local setup.
+**Supabase for database hosting** — Supports PostgreSQL with TLS. Provides separate projects/databases, which allows a clean split between production and test databases without any local setup.
 
 **Render for backend hosting** — Free tier, no credit card required, deploys from GitHub with native Rust support. No Docker needed. The free tier spins down after inactivity and takes a moment to wake up on the next request, but since the sensor board continuously posts readings, the service stays warm.
 
-**Separate `TEST_DATABASE_URL`** — Tests use a dedicated Neon project instead of the production database. `#[sqlx::test]` was considered but dropped — it dynamically creates and drops databases per test, which conflicts with Neon's connection pooling (lingering connections block the DROP). Instead, tests use a single shared database with a `TRUNCATE` at the start of each test and `max_connections(1)` to stay within Neon's free tier connection limit.
+**Separate `TEST_DATABASE_URL`** — Tests use a dedicated Supabase project instead of the production database. `#[sqlx::test]` was considered but dropped — it dynamically creates and drops databases per test, which conflicts with connection pooling (lingering connections block the DROP). Instead, tests use a single shared database with a `TRUNCATE` at the start of each test and `max_connections(1)`.
 
 **`RUST_TEST_THREADS = "1"` in `.cargo/config.toml`** — Tests share a single database, so running them in parallel causes race conditions. This enforces sequential execution without needing to pass `--test-threads=1` manually every time.
 
