@@ -30,14 +30,14 @@ Run the server:
 cargo run
 ```
 
-Server listens on `http://0.0.0.0:3111`.
+Server listens on `http://0.0.0.0:3600`.
 
 ## Usage
 
 **Push a reading:**
 
 ```bash
-curl -X POST http://localhost:3111/readings \
+curl -X POST http://localhost:3600/readings \
   -H "Content-Type: application/json" \
   -d '{
     "temperature_c": 23.4,
@@ -57,20 +57,20 @@ Presence fields are optional — omit them or set to `null` if radar data is una
 **Get history:**
 
 ```bash
-curl http://localhost:3111/readings
-curl "http://localhost:3111/readings?limit=10&from=2026-01-01T00:00:00Z"
+curl http://localhost:3600/readings
+curl "http://localhost:3600/readings?limit=10&from=2026-01-01T00:00:00Z"
 ```
 
 **Get the latest reading:**
 
 ```bash
-curl http://localhost:3111/readings/latest
+curl http://localhost:3600/readings/latest
 ```
 
 **Subscribe to live updates:**
 
 ```bash
-curl -N http://localhost:3111/sse
+curl -N http://localhost:3600/sse
 ```
 
 ## Testing
