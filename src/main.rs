@@ -1,8 +1,10 @@
 use std::sync::Arc;
+use std::time::Duration;
 
-use lode_api_rust::{AppState, build_router};
+use lode_api_rust::models::TimestampedReading;
+use lode_api_rust::{AppState, build_router, spawn_buffer_task};
 use sqlx::postgres::PgPoolOptions;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -29,12 +31,18 @@ async fn main() {
         .await
         .expect("failed to run migrations");
 
-    let (tx, _) = broadcast::channel(32);
-    let state = Arc::new(AppState { db, tx });
+    let (tx, _) = broadcast::channel::<TimestampedReading>(32);
+    let (buffer_tx, buffer_rx) = mpsc::channel(1024);
+
+    let state = Arc::new(AppState { db: db.clone(), tx, buffer_tx });
+    spawn_buffer_task(db, buffer_rx, Duration::from_secs(30));
+
     let app = build_router(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3600".to_string());
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
+        .await
+        .unwrap();
     tracing::info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }

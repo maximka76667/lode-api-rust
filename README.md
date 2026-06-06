@@ -73,9 +73,13 @@ curl http://localhost:3600/readings/latest
 curl -N http://localhost:3600/sse
 ```
 
+## Buffering
+
+Incoming readings are **not** written to the database immediately. Instead they are held in an in-memory buffer and batch-inserted every **30 seconds**. SSE clients still receive each reading in real time — the delay only affects database persistence.
+
 ## Testing
 
-Tests run against a separate database specified by `TEST_DATABASE_URL`. Each test truncates the table before running.
+Tests run against a separate database specified by `TEST_DATABASE_URL`. Each test truncates the table before running. The buffer flush interval is set to **100ms** in tests so reads arrive in the database quickly without long sleeps.
 
 ```bash
 cargo test

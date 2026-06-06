@@ -13,48 +13,25 @@ use tokio_stream::{StreamExt, wrappers::BroadcastStream};
 
 use crate::{
     AppState,
-    models::{NewReading, ReadingFilters, SensorReading},
+    models::{DbReading, RawReading, ReadingFilters, TimestampedReading},
 };
 
 pub async fn create_reading(
     State(state): State<Arc<AppState>>,
-    Json(body): Json<NewReading>,
+    Json(body): Json<RawReading>,
 ) -> StatusCode {
-    let result = sqlx::query_as::<_, SensorReading>(
-        "INSERT INTO readings \
-         (temperature, humidity, pressure, \
-          presence_status, movement_distance_cm, movement_energy, \
-          stationary_distance_cm, stationary_energy, detection_distance_cm) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) \
-         RETURNING id, temperature, humidity, pressure, recorded_at, \
-                   presence_status, movement_distance_cm, movement_energy, \
-                   stationary_distance_cm, stationary_energy, detection_distance_cm",
-    )
-    .bind(body.temperature_c)
-    .bind(body.humidity_pct)
-    .bind(body.pressure_hpa)
-    .bind(body.presence_status)
-    .bind(body.movement_distance_cm)
-    .bind(body.movement_energy)
-    .bind(body.stationary_distance_cm)
-    .bind(body.stationary_energy)
-    .bind(body.detection_distance_cm)
-    .fetch_one(&state.db)
-    .await;
-
-    match result {
-        Ok(reading) => {
-            let _ = state.tx.send(reading);
-            StatusCode::CREATED
-        }
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    let reading = TimestampedReading::from(body);
+    let _ = state.tx.send(reading.clone());
+    if state.buffer_tx.send(reading).await.is_err() {
+        return StatusCode::INTERNAL_SERVER_ERROR;
     }
+    StatusCode::CREATED
 }
 
 pub async fn get_readings(
     State(state): State<Arc<AppState>>,
     Query(filters): Query<ReadingFilters>,
-) -> Result<Json<Vec<SensorReading>>, StatusCode> {
+) -> Result<Json<Vec<DbReading>>, StatusCode> {
     let mut qb = sqlx::QueryBuilder::<sqlx::Postgres>::new(
         "SELECT id, temperature, humidity, pressure, recorded_at, \
          presence_status, movement_distance_cm, movement_energy, \
@@ -75,7 +52,7 @@ pub async fn get_readings(
         qb.push(" LIMIT ").push_bind(limit);
     }
 
-    qb.build_query_as::<SensorReading>()
+    qb.build_query_as::<DbReading>()
         .fetch_all(&state.db)
         .await
         .map(Json)
@@ -84,8 +61,8 @@ pub async fn get_readings(
 
 pub async fn get_latest_reading(
     State(state): State<Arc<AppState>>,
-) -> Result<Json<SensorReading>, StatusCode> {
-    sqlx::query_as::<_, SensorReading>(
+) -> Result<Json<DbReading>, StatusCode> {
+    sqlx::query_as::<_, DbReading>(
         "SELECT id, temperature, humidity, pressure, recorded_at, \
          presence_status, movement_distance_cm, movement_energy, \
          stationary_distance_cm, stationary_energy, detection_distance_cm \

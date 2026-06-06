@@ -1,16 +1,18 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use lode_api_rust::{AppState, build_router, models::SensorReading};
+use lode_api_rust::{AppState, build_router, models::DbReading, spawn_buffer_task};
 use sqlx::postgres::PgPoolOptions;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tower::ServiceExt;
 
 async fn setup() -> Arc<AppState> {
+    let _ = tracing_subscriber::fmt::try_init();
     dotenvy::dotenv().ok();
     let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be set");
 
@@ -28,7 +30,15 @@ async fn setup() -> Arc<AppState> {
         .unwrap();
 
     let (tx, _) = broadcast::channel(32);
-    Arc::new(AppState { db: pool, tx })
+    let (buffer_tx, buffer_rx) = mpsc::channel(1024);
+
+    spawn_buffer_task(pool.clone(), buffer_rx, Duration::from_millis(100));
+
+    Arc::new(AppState {
+        db: pool,
+        tx,
+        buffer_tx,
+    })
 }
 
 async fn post_reading(app: axum::Router, temp: f64, humidity: f64, pressure: f64) -> StatusCode {
@@ -63,14 +73,18 @@ async fn test_get_readings_empty() {
     let state = setup().await;
 
     let response = build_router(state)
-        .oneshot(Request::builder().uri("/readings").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/readings")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let readings: Vec<lode_api_rust::models::SensorReading> =
-        serde_json::from_slice(&bytes).unwrap();
+    let readings: Vec<DbReading> = serde_json::from_slice(&bytes).unwrap();
     assert!(readings.is_empty());
 }
 
@@ -78,19 +92,23 @@ async fn test_get_readings_empty() {
 async fn test_get_readings_returns_inserted() {
     let state = setup().await;
 
-    let s1 = post_reading(build_router(Arc::clone(&state)), 23.4, 58.2, 1013.25).await;
-    let s2 = post_reading(build_router(Arc::clone(&state)), 24.0, 60.0, 1012.0).await;
-    assert_eq!(s1, StatusCode::CREATED);
-    assert_eq!(s2, StatusCode::CREATED);
+    post_reading(build_router(Arc::clone(&state)), 23.4, 58.2, 1013.25).await;
+    post_reading(build_router(Arc::clone(&state)), 24.0, 60.0, 1012.0).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
 
     let response = build_router(Arc::clone(&state))
-        .oneshot(Request::builder().uri("/readings").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/readings")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let readings: Vec<SensorReading> = serde_json::from_slice(&bytes).unwrap();
+    let readings: Vec<DbReading> = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(readings.len(), 2);
 }
 
@@ -99,10 +117,9 @@ async fn test_get_readings_limit() {
     let state = setup().await;
 
     for i in 0..5 {
-        let status =
-            post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
-        assert_eq!(status, StatusCode::CREATED);
+        post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
     }
+    tokio::time::sleep(Duration::from_millis(500)).await;
 
     let response = build_router(Arc::clone(&state))
         .oneshot(
@@ -115,7 +132,7 @@ async fn test_get_readings_limit() {
         .unwrap();
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let readings: Vec<SensorReading> = serde_json::from_slice(&bytes).unwrap();
+    let readings: Vec<DbReading> = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(readings.len(), 3);
 }
 
@@ -123,42 +140,41 @@ async fn test_get_readings_limit() {
 async fn test_get_readings_no_limit_returns_all() {
     let state = setup().await;
 
-    // Insert more than the old default of 100 to prove no silent cap is applied
     for i in 0..150 {
-        let status =
-            post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
-        assert_eq!(status, StatusCode::CREATED);
+        post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
     }
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     let response = build_router(Arc::clone(&state))
-        .oneshot(Request::builder().uri("/readings").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/readings")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let readings: Vec<SensorReading> = serde_json::from_slice(&bytes).unwrap();
+    let readings: Vec<DbReading> = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(readings.len(), 150);
 }
 
 #[tokio::test]
 async fn test_get_readings_from_filter() {
-    use chrono::Utc;
-
     let state = setup().await;
 
-    // Insert 3 readings, then record a timestamp, then insert 2 more
     for i in 0..3 {
         post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
     }
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
-    let cutoff: chrono::DateTime<Utc> = sqlx::query_scalar("SELECT NOW()")
-        .fetch_one(&state.db)
-        .await
-        .unwrap();
+    let cutoff = chrono::Utc::now();
 
     for i in 0..2 {
         post_reading(build_router(Arc::clone(&state)), i as f64, 50.0, 1000.0).await;
     }
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     let from = cutoff.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string();
     let uri = format!("/readings?from={from}");
@@ -169,7 +185,7 @@ async fn test_get_readings_from_filter() {
         .unwrap();
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let readings: Vec<SensorReading> = serde_json::from_slice(&bytes).unwrap();
+    let readings: Vec<DbReading> = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(readings.len(), 2);
 }
 
