@@ -16,6 +16,7 @@ pub struct AppState {
     pub db: sqlx::PgPool,
     pub tx: broadcast::Sender<models::TimestampedReading>,
     pub buffer_tx: mpsc::Sender<models::TimestampedReading>,
+    pub api_key: String,
 }
 
 pub fn spawn_buffer_task(

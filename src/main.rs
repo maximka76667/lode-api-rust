@@ -34,7 +34,8 @@ async fn main() {
     let (tx, _) = broadcast::channel::<TimestampedReading>(32);
     let (buffer_tx, buffer_rx) = mpsc::channel(1024);
 
-    let state = Arc::new(AppState { db: db.clone(), tx, buffer_tx });
+    let api_key = std::env::var("API_KEY").expect("API_KEY must be set");
+    let state = Arc::new(AppState { db: db.clone(), tx, buffer_tx, api_key });
     spawn_buffer_task(db, buffer_rx, Duration::from_secs(30));
 
     let app = build_router(state);

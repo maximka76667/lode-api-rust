@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{
         Json, Sse,
         sse::{Event, KeepAlive},
@@ -18,8 +18,13 @@ use crate::{
 
 pub async fn create_reading(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Json(body): Json<RawReading>,
 ) -> StatusCode {
+    let key = headers.get("x-api-key").and_then(|v| v.to_str().ok()).unwrap_or("");
+    if key != state.api_key {
+        return StatusCode::UNAUTHORIZED;
+    }
     let reading = TimestampedReading::from(body);
     let _ = state.tx.send(reading.clone());
     if state.buffer_tx.send(reading).await.is_err() {
