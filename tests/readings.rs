@@ -38,6 +38,7 @@ async fn setup() -> Arc<AppState> {
         db: pool,
         tx,
         buffer_tx,
+        api_key: "test-key".to_string(),
     })
 }
 
@@ -53,6 +54,7 @@ async fn post_reading(app: axum::Router, temp: f64, humidity: f64, pressure: f64
             .method("POST")
             .uri("/readings")
             .header("content-type", "application/json")
+            .header("x-api-key", "test-key")
             .body(Body::from(body.to_string()))
             .unwrap(),
     )
@@ -199,6 +201,7 @@ async fn test_post_invalid_body_returns_422() {
                 .method("POST")
                 .uri("/readings")
                 .header("content-type", "application/json")
+                .header("x-api-key", "test-key")
                 .body(Body::from(r#"{"bad": "data"}"#))
                 .unwrap(),
         )

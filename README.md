@@ -22,6 +22,7 @@ Create a `.env` file in the project root:
 ```env
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 TEST_DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+API_KEY=your-secret-key
 ```
 
 Run the server:
@@ -39,6 +40,7 @@ Server listens on `http://0.0.0.0:3600`.
 ```bash
 curl -X POST http://localhost:3600/readings \
   -H "Content-Type: application/json" \
+  -H "X-Api-Key: your-secret-key" \
   -d '{
     "temperature_c": 23.4,
     "humidity_pct": 58.2,
@@ -91,7 +93,7 @@ The app is deployed on [Render](https://render.com) using the native Rust build.
 
 1. Create a new **Web Service** on Render, connect your GitHub repo
 2. Set build method to **Rust**
-3. Add environment variable `DATABASE_URL` with your Supabase production connection string
+3. Add environment variables `DATABASE_URL` (Supabase connection string) and `API_KEY` (shared secret with the firmware)
 
 ## Design Decisions
 
@@ -111,4 +113,5 @@ The app is deployed on [Render](https://render.com) using the native Rust build.
 | ------------------- | ------------------------------------------- |
 | `DATABASE_URL`      | PostgreSQL connection string (required)     |
 | `TEST_DATABASE_URL` | PostgreSQL connection string used for tests |
+| `API_KEY`           | Secret key required to POST readings        |
 | `RUST_LOG`          | Log level (e.g. `lode_api_rust=debug`)      |
